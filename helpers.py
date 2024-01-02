@@ -2,6 +2,9 @@ from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Qdrant
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationalRetrievalChain
+from langchain.chat_models import ChatOpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import UnexpectedResponse
@@ -86,6 +89,16 @@ def getVectorStore(text: str, chunks:list):
 
     return vector_store
 
+def getConversationChain(vectorStore):
+    llm = ChatOpenAI()
+    memory = ConversationBufferMemory(
+        memory_key='chat_history', return_messages=True)
+    conversation_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vectorStore.as_retriever(),
+        memory=memory
+    )
+    return conversation_chain
 
 
 

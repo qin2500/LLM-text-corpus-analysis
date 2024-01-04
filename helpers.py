@@ -5,6 +5,7 @@ from langchain.vectorstores import Qdrant
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
+from htmlTemplate import css, user, sys
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import UnexpectedResponse
@@ -14,12 +15,11 @@ import hashlib
 import streamlit as st
 
 #Read a pdf into a string
-def parsePDF(docs: list)->str:
+def parsePDF(doc)->str:
     raw_text = ""
-    for pdf in docs:
-        reader = PdfReader(pdf)
-        for page in reader.pages:
-            raw_text += page.extract_text() 
+    reader = PdfReader(doc)
+    for page in reader.pages:
+        raw_text += page.extract_text() 
     return raw_text
 
 #Split string into chunks using langchain
@@ -67,7 +67,6 @@ def getVectorStore(text: str, chunks:list):
     except UnexpectedResponse as e: 
         #TODO: Right now, this catches ALL error codes. Should make cases for different error codes.
         #Create qdrant collection
-        print(e)
         qdrant_client.create_collection(
         collection_name=f"{PDFhash}",
         vectors_config=models.VectorParams(size=1536, distance=models.Distance.COSINE),
@@ -100,6 +99,17 @@ def getConversationChain(vectorStore):
     )
     return conversation_chain
 
+def handelPrompt(user_question):
+    response = st.session_state.conversation({'question': user_question})
+    st.session_state.chat_history = response['chat_history']
+
+    for i, message in enumerate(st.session_state.chat_history):
+        if i % 2 == 0:
+            st.write(user.replace(
+                "{{MSG}}", message.content), unsafe_allow_html=True)
+        else:
+            st.write(sys.replace(
+                "{{MSG}}", message.content), unsafe_allow_html=True)
 
 
 

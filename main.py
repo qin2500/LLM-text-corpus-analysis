@@ -2,6 +2,7 @@ import streamlit as st
 import helpers as helper
 from qdrant_client import QdrantClient
 from dotenv import load_dotenv
+from htmlTemplate import css
 
 def main():
     load_dotenv()
@@ -9,16 +10,24 @@ def main():
     st.set_page_config(page_title="PDF Analysis App",
                        page_icon=":books:")
     
+    st.write(css, unsafe_allow_html=True)
+
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = None
+    if "chatHistory" not in st.session_state:
+        st.session_state.chatHistory = None
+    
     st.header("Ask questions about your Document")
-    prompt = st.text_area("Enter your prompt:")
+    prompt = st.text_input("Enter your prompt:")
+    if prompt:
+        helper.handelPrompt()    
 
     with st.sidebar:
         st.subheader("Upload Context xPDF(s)")
-        uploaded_files = st.file_uploader("Choose a PDF file", type=["pdf"], accept_multiple_files=True)
+        uploaded_files = st.file_uploader("Choose a PDF file", type=["pdf"], accept_multiple_files=False)
         if st.button("Submit"):
             with st.spinner("Processing (this may take some time)"): 
                 #Parse PDFs
-
                 raw_text = helper.parsePDF(uploaded_files)
                 
                 chunks = helper.chunker(raw_text)
@@ -27,7 +36,9 @@ def main():
                 #Get VectorStore
                 vectorStore = helper.getVectorStore(raw_text, chunks)
                 print(vectorStore)
-                
+
+                #Create conversation Chain
+                st.session_state.conversation = helper.getConversationChain(vectorStore)
 
 
         st.subheader("Processed PDFs:")

@@ -9,15 +9,12 @@ css = '''
 .chat-message.bot {
     background-color: #475063
 }
-.chat-message .avatar {
-  width: 20%;
-}
+
 
 '''
 
 sys = '''
 <div class="chat-message bot">
-
     <div class="message">{{MSG}}</div>
 </div>
 '''

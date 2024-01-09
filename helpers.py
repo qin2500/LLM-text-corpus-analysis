@@ -5,6 +5,9 @@ from langchain.vectorstores import Qdrant
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
+from langchain.chains.router.multi_retrieval_qa import MultiRetrievalQAChain
+from langchain.chains.retrieval_qa.base import RetrievalQA
+from langchain.schema import BaseRetriever
 from htmlTemplate import css, user, sys
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
@@ -15,12 +18,15 @@ import hashlib
 import streamlit as st
 
 #Read a pdf into a string
-def parsePDF(doc)->str:
-    raw_text = ""
-    reader = PdfReader(doc)
-    for page in reader.pages:
-        raw_text += page.extract_text() 
-    return raw_text
+def parsePDF(docs)->list:
+    output = []
+    for doc in docs:
+        raw_text = ""
+        reader = PdfReader(doc)
+        for page in reader.pages:
+            raw_text += page.extract_text() 
+        output.append
+    return output
 
 #Split string into chunks using langchain
 def chunker(text: str)->list:
@@ -42,8 +48,10 @@ def getHash(text: str):
     return hash_code
     
 
-def getVectorStore(text: str, chunks:list):
+def getVectorStore(text: list):
     load_dotenv()
+
+    vector_stores = []
 
     #Connect to qdrant database
     qdrant_client = QdrantClient(
@@ -51,50 +59,54 @@ def getVectorStore(text: str, chunks:list):
     api_key=os.getenv("QDRANT_API_KEY")
     )
 
-    #Get hash code for inputed pdf
-    PDFhash = getHash(text)
+    for raw_text in text:
 
-    found = False
+        #Get hash code for inputed pdf
+        PDFhash = getHash(text)
 
-    try:
-        #See if collection with name {hash} alsoready exists
-        info = qdrant_client.get_collection(collection_name=PDFhash)
-        st.write(info)
+        found = False
 
-        if info.vectors_count != 0: 
-            found = True
+        try:
+            #See if collection with name {hash} alsoready exists
+            info = qdrant_client.get_collection(collection_name=PDFhash)
+            st.write(info)
 
-    except UnexpectedResponse as e: 
-        #TODO: Right now, this catches ALL error codes. Should make cases for different error codes.
-        #Create qdrant collection
-        qdrant_client.create_collection(
-        collection_name=f"{PDFhash}",
-        vectors_config=models.VectorParams(size=1536, distance=models.Distance.COSINE),
+            if info.vectors_count != 0: 
+                found = True
+
+        except UnexpectedResponse as e: 
+            #TODO: Right now, this catches ALL error codes. Should make cases for different error codes.
+            #Create qdrant collection
+            qdrant_client.create_collection(
+            collection_name=f"{PDFhash}",
+            vectors_config=models.VectorParams(size=1536, distance=models.Distance.COSINE),
+            )
+
+        #Generate and store vector embedding of pdf
+        embedding = OpenAIEmbeddings()
+        vector_store = Qdrant(
+            client=qdrant_client,
+            collection_name=PDFhash,
+            embeddings=embedding
         )
 
-    #Generate and store vector embedding of pdf
-    embedding = OpenAIEmbeddings()
-    vector_store = Qdrant(
-        client=qdrant_client,
-        collection_name=PDFhash,
-        embeddings=embedding
-    )
+        if not found:
+            st.write("Spending money")
+            chunks = chunker(raw_text)
+            vector_store.add_texts(chunks)
+        else:
+            st.write("Saving money")
 
-    if not found:
-        st.write("Spending money")
-        vector_store.add_texts(chunks)
-    else:
-        st.write("Saving money")
+        vector_stores.append()
+    return vector_stores
 
-    return vector_store
-
-def getConversationChain(vectorStore):
+def getConversationChain(vectorStores):
     llm = ChatOpenAI()
     memory = ConversationBufferMemory(
         memory_key='chat_history', return_messages=True)
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
-        retriever=vectorStore.as_retriever(),
+        retriever=vectorStores,
         memory=memory
     )
     return conversation_chain

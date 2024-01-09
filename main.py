@@ -36,23 +36,19 @@ def main():
     
    
     st.subheader("Upload Context PDF(s)")
-    uploaded_files = st.file_uploader("Choose a PDF file", type=["pdf"], accept_multiple_files=False)
+    uploaded_files = st.file_uploader("Choose a PDF file", type=["pdf"], accept_multiple_files=True)
     if st.button("Submit"):
         with st.spinner("Processing (this may take some time)"): 
             #Parse PDFs
-            raw_text = helper.parsePDF(uploaded_files)
+            raw_text_list = helper.parsePDF(uploaded_files)
             
-            chunks = helper.chunker(raw_text)
-            st.write(f"Chunk Count: {len(chunks)}")
-
             #Get VectorStore
-            vectorStore = helper.getVectorStore(raw_text, chunks)
-            print(vectorStore)
+            vectorStore = helper.getVectorStore(raw_text_list)
 
             #Create conversation Chain
             st.session_state.conversation = helper.getConversationChain(vectorStore)
 
-    
+
 
     prompt = st.text_input(" ",placeholder="Enter your prompt...", key="prompt")
     if prompt:
